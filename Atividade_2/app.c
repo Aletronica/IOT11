@@ -47,9 +47,11 @@
 #include <termios.h>
 
 //Definição das prioridades de cada Task
-#define TASK1_PRIORITY 1 //Prioridade da tarefa Led verde
-#define TASK2_PRIORITY 2 //Prioridade da tarefa Led vermelho. Deve ser maior que o verde, pois tem que acender ao apertar a tecla
-#define TASK3_PRIORITY 2 //Prioridade da tarefa de leitura de teclado (deve ser maior que as anteriores) 
+#define TASK1_PRIORITY 1 //Prioridade da tarefa 1
+#define TASK2_PRIORITY 1 //Prioridade da tarefa 2
+#define TASK3_PRIORITY 1 //Prioridade da tarefa 3
+#define TASK4_PRIORITY 1 //Prioridade da tarefa 4
+
 
 //Definições do programa
 #define BLACK "\033[30m" /* Black */
@@ -78,9 +80,9 @@ st_led_param_t red = {
     RED,  // Define a cor do LED
     100}; // Define o estado de acesso do LED vermelho deve durar 100ms
 
-TaskHandle_t greenTask_hdlr, redTask_hdlr, getCharTask_hdlr;
+TaskHandle_t Task1_hdl, Task2_hdl, Task3_hdl, Task4_hdl;
 
-//Task para leitura do teclado e interpretação das ações de controle dos leds
+//Task para leitura do telcado
 static void prvTask_getChar(void *pvParameters)
 {
     char key;
@@ -165,96 +167,22 @@ static void prvTask_getChar(void *pvParameters)
     vTaskDelete(NULL);
 }
 
-//Task para controlar o LED vermelho
-static void prvTask_red_led(void *pvParameters)
-{
-    // pvParameters contains LED params
-    uint32_t notificationValue_red;
-    st_led_param_t *led = (st_led_param_t *)pvParameters;
-    portTickType xLastWakeTime = xTaskGetTickCount();
-    for (;;)
-    {
-         //Acende o Led
-        gotoxy(led->pos, 2);
-        printf("%s⬤", led->color);
-        fflush(stdout);
-        vTaskDelay(led->period_ms / portTICK_PERIOD_MS);
-        if (xTaskNotifyWait(
-            ULONG_MAX,
-            ULONG_MAX,
-            &notificationValue_red,                   //Recebe notificação para mudar de estado
-            1)) //espera um Tick
-            {
-                if(notificationValue_red == 01)       //Confirma se foi notificado
-                {
-                   vTaskSuspend(redTask_hdlr);        //Muda para estado suspenso se confirmada a notificação. Suspende ainda com Led vermelho acesso.
-                }
-            }
-
-        //Apaga o Led
-        gotoxy(led->pos, 2);
-        printf("%s⬤", BLACK);
-        fflush(stdout);
-
-        vTaskSuspend(redTask_hdlr);
-
-    }
-
-    vTaskDelete(NULL);
-}
-
-//Task para controlar o Led verde
-static void prvTask_green_led(void *pvParameters)
-{
-    // pvParameters contains LED params
-    uint32_t notificationValue_green;
-    st_led_param_t *led = (st_led_param_t *)pvParameters;
-    portTickType xLastWakeTime = xTaskGetTickCount();
-    for (;;)
-    {
-        //Acende o Led  
-        gotoxy(led->pos, 2);
-        printf("%s⬤", led->color);
-        fflush(stdout);
-        vTaskDelay(led->period_ms / portTICK_PERIOD_MS);
-
-        //Apaga o Led
-        gotoxy(led->pos, 2);
-        printf("%s⬤", BLACK);
-        fflush(stdout);
-        vTaskDelay(led->period_ms / portTICK_PERIOD_MS); //Recebe notificação para mudar de estado
-        if (xTaskNotifyWait(
-            ULONG_MAX,
-            ULONG_MAX,
-            &notificationValue_green,
-            1)) //espera um Tick
-            {
-                if(notificationValue_green == 01)        //Confirma se foi notificado
-                {
-                   vTaskSuspend(greenTask_hdlr);         //Suspende a tarefa do Led verde, quando ele já estiver apgado. Assim se mantém.
-                }
-            }
-
-    }
-
-    vTaskDelete(NULL);
-}
-
 void app_run(void)
 {
 
-    clear();
-    DISABLE_CURSOR();
-    printf(
-        "╔═════════════════╗\n"
-        "║                 ║\n"
-        "╚═════════════════╝\n");
+   // clear();
+   // DISABLE_CURSOR();
+   // printf(
+   //     "╔═════════════════╗\n"
+  //      "║                 ║\n"
+   //     "╚═════════════════╝\n");
 
 
-    xTaskCreate(prvTask_green_led, "LED_green", configMINIMAL_STACK_SIZE, &green, TASK1_PRIORITY, &greenTask_hdlr);
-    xTaskCreate(prvTask_red_led, "LED_red", configMINIMAL_STACK_SIZE, &red, TASK2_PRIORITY, &redTask_hdlr);
-    vTaskSuspend(redTask_hdlr); // A task do Led vermelho é suspensa logo que criada e fica aguardando ações vinda do teclado
-    xTaskCreate(prvTask_getChar, "Get_key", configMINIMAL_STACK_SIZE, NULL, TASK3_PRIORITY, &getCharTask_hdlr);
+    xTaskCreate(Task_leitura_teclado, "Ler_Teclado", configMINIMAL_STACK_SIZE, NULL, TASK1_PRIORITY, &Task1_hdl); //Task1 = Leitura dos dados do teclado
+    //xTaskCreate(Task_processador_texto, "Processa_Texto", configMINIMAL_STACK_SIZE, NULL, TASK2_PRIORITY, &Task2_hdl); //Task2 = Processador de texto
+    //xTaskCreate(Task_codificador_morse, "Codificador_Morse", configMINIMAL_STACK_SIZE, NULL, TASK2_PRIORITY, &Task2_hdl); //Task2 = Codificado texto em morse
+    //xTaskCreate(Task_morse_led, "Morse_Led", configMINIMAL_STACK_SIZE, NULL, TASK2_PRIORITY, &Task2_hdl); //Task2 = Saida morse em Led
+
 
     /* Start the tasks and timer running. */
     vTaskStartScheduler();
